@@ -121,7 +121,7 @@ addEventListener("fetch", async (event) => {
                     });
 
                     const response = await fetch(targetUrl, newRequest);
-                    let responseHeaders = new Headers(response.headers);
+                    let resHeaders = new Headers(response.headers);
                     const exposedHeaders = [];
                     const allResponseHeaders = {};
                     for (const [key, value] of response.headers.entries()) {
@@ -129,29 +129,28 @@ addEventListener("fetch", async (event) => {
                         allResponseHeaders[key] = value;
                     }
                     exposedHeaders.push("cors-received-headers");
-                    responseHeaders = setupCORSHeaders(responseHeaders);
+                    resHeaders = setupCORSHeaders(resHeaders);
 
-                    responseHeaders.set(
+                    resHeaders.set(
                         "Access-Control-Expose-Headers",
                         exposedHeaders.join(",")
                     );
-                    responseHeaders.set(
+                    resHeaders.set(
                         "cors-received-headers",
                         JSON.stringify(allResponseHeaders)
                     );
 
-                    const responseBody = isPreflightRequest
-                        ? null
-                        : await response.arrayBuffer();
-
                     const responseInit = {
-                        headers: responseHeaders,
+                        headers: resHeaders,
                         status: isPreflightRequest ? 200 : response.status,
                         statusText: isPreflightRequest
                             ? "OK"
                             : response.statusText,
                     };
-                    return new Response(responseBody, responseInit);
+                    return new Response(
+                        isPreflightRequest ? null : response.body,
+                        responseInit
+                    );
                 } else {
                     let responseHeaders = new Headers();
                     responseHeaders = setupCORSHeaders(responseHeaders);
