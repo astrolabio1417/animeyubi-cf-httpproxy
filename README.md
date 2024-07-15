@@ -4,7 +4,7 @@ This project is written in [Cloudfalre Workers](https://workers.cloudflare.com/)
 https://github.com/Zibri/cloudflare-cors-anywhere edited/forked version
 
 ```bash
-wrangler publish
+npx wrangler deploy
 ```
 
 ## Usage Example
