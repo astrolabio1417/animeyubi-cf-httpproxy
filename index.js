@@ -18,77 +18,69 @@ The main goal is to facilitate cross-origin requests while enforcing specific se
 const blacklistUrls = []; // regexp for blacklisted urls
 const whitelistOrigins = [
     // ".*",
-    "^https://animeyubi.com",
+    '^(https://)?animeyubi.com',
+    // "^(https://)?httpproxy.animeyubi.workers.dev",
+    '^(https://)?httpproxy.animeyubi.com',
+    // "^(http://)?localhost",
+    // "^(http://)?localhost:5173",
+    // "^(http://)?localhost:8787",
 ]; // regexp for whitelisted origins
 
 // Function to check if a given URI or origin is listed in the whitelist or blacklist
 function isListedInlist(uri, listing) {
     // When URI is null (e.g., when Origin header is missing), decide based on the implementation
     // false reject null origins, true would accept them
-    if (typeof uri !== "string") return false;
-    return listing.some((pattern) => uri.match(pattern) !== null);
+    if (typeof uri !== 'string') return false;
+    return listing.some(pattern => uri.match(pattern) !== null);
 }
 
 // Event listener for incoming fetch requests
-addEventListener("fetch", async (event) => {
+addEventListener('fetch', async event => {
     event.respondWith(
         (async function() {
-            const isPreflightRequest = event.request.method === "OPTIONS";
+            const isPreflightRequest = event.request.method === 'OPTIONS';
             const originUrl = new URL(event.request.url);
 
             // Function to modify headers to enable CORS
             function setupCORSHeaders(headers) {
-                headers.set(
-                    "Access-Control-Allow-Origin",
-                    event.request.headers.get("Origin")
-                );
+                headers.set('Access-Control-Allow-Origin', event.request.headers.get('Origin'));
 
                 if (!isPreflightRequest) return headers;
 
-                headers.set(
-                    "Access-Control-Allow-Methods",
-                    event.request.headers.get("access-control-request-method")
-                );
-                const requestedHeaders = event.request.headers.get(
-                    "access-control-request-headers"
-                );
+                headers.set('Access-Control-Allow-Methods', event.request.headers.get('access-control-request-method'));
+                const requestedHeaders = event.request.headers.get('access-control-request-headers');
 
                 if (requestedHeaders) {
-                    headers.set(
-                        "Access-Control-Allow-Headers",
-                        requestedHeaders
-                    );
+                    headers.set('Access-Control-Allow-Headers', requestedHeaders);
                 }
 
-                headers.delete("X-Content-Type-Options"); // Remove X-Content-Type-Options header
+                headers.delete('X-Content-Type-Options'); // Remove X-Content-Type-Options header
+                return headers;
             }
 
-            const targetUrl = decodeURIComponent(
-                decodeURIComponent(originUrl.search.substr(1))
-            );
+            const targetUrl = decodeURIComponent(decodeURIComponent(originUrl.search.substr(1)));
 
             const originHeader =
-                event.request.headers.get("Origin") ||
-                event.request.headers.get("Referer");
-            const connectingIp = event.request.headers.get("CF-Connecting-IP");
+                event.request.headers.get('Origin') ||
+                event.request.headers.get('Referer') ||
+                event.request.headers.get('Host');
+            const connectingIp = event.request.headers.get('CF-Connecting-IP');
             const isNotAllowed = !(
-                !isListedInlist(targetUrl, blacklistUrls) &&
-                isListedInlist(originHeader, whitelistOrigins)
+                !isListedInlist(targetUrl, blacklistUrls) && isListedInlist(originHeader, whitelistOrigins)
             );
 
             if (isNotAllowed) {
-                return new Response("Hello There!", {
+                return new Response('Forbidden', {
                     status: 403,
-                    statusText: "Forbidden",
+                    statusText: 'Forbidden',
                     headers: {
-                        "Content-Type": "text/html",
+                        'Content-Type': 'text/html',
                     },
                 });
             }
 
             let customHeaders =
-                event.request.headers.get("x-cors-headers") ||
-                originUrl.searchParams.get("x-cors-headers");
+                event.request.headers.get('x-cors-headers') || originUrl.searchParams.get('x-cors-headers');
 
             if (customHeaders !== null) {
                 try {
@@ -96,61 +88,52 @@ addEventListener("fetch", async (event) => {
                 } catch (e) {}
             }
 
-            if (!originUrl.search.startsWith("?")) {
+            if (!originUrl.search.startsWith('?')) {
                 let responseHeaders = new Headers();
                 responseHeaders = setupCORSHeaders(responseHeaders);
 
                 let country = false;
                 let colo = false;
-                if (typeof event.request.cf !== "undefined") {
+                if (typeof event.request.cf !== 'undefined') {
                     country = event.request.cf.country || false;
                     colo = event.request.cf.colo || false;
                 }
 
                 return new Response(
-                    "Usage:\n" +
+                    'Usage:\n' +
                         originUrl.origin +
-                        "/?uri\n\n" +
-                        "Limits: 100,000 requests/day\n" +
-                        "          1,000 requests/10 minutes\n\n" +
-                        (originHeader ? "Origin: " + originHeader + "\n" : "") +
-                        "IP: " +
+                        '/?uri\n\n' +
+                        'Limits: 100,000 requests/day\n' +
+                        '          1,000 requests/10 minutes\n\n' +
+                        (originHeader ? 'Origin: ' + originHeader + '\n' : '') +
+                        'IP: ' +
                         connectingIp +
-                        "\n" +
-                        (country ? "Country: " + country + "\n" : "") +
-                        (colo ? "Datacenter: " + colo + "\n" : "") +
-                        (customHeaders
-                            ? "\nx-cors-headers: " +
-                              JSON.stringify(customHeaders)
-                            : ""),
+                        '\n' +
+                        (country ? 'Country: ' + country + '\n' : '') +
+                        (colo ? 'Datacenter: ' + colo + '\n' : '') +
+                        (customHeaders ? '\nx-cors-headers: ' + JSON.stringify(customHeaders) : ''),
                     {
                         status: 200,
                         headers: responseHeaders,
-                    }
+                    },
                 );
             }
 
             const filteredHeaders = {};
             for (const [key, value] of event.request.headers.entries()) {
-                if (
-                    key.match("^origin") === null &&
-                    key.match("eferer") === null &&
-                    key.match("^cf-") === null &&
-                    key.match("^x-forw") === null &&
-                    key.match("^x-cors-headers") === null
-                ) {
+                const filHeaderKeys = ['^origin', 'eferer', '^cf-', '^x-forw', '^x-cors-headers'];
+
+                if (filHeaderKeys.every(pattern => key.match(pattern) !== null)) {
                     filteredHeaders[key] = value;
                 }
             }
 
             if (customHeaders !== null) {
-                Object.entries(customHeaders).forEach(
-                    (entry) => (filteredHeaders[entry[0]] = entry[1])
-                );
+                Object.entries(customHeaders).forEach(entry => (filteredHeaders[entry[0]] = entry[1]));
             }
 
             const newRequest = new Request(event.request, {
-                redirect: "follow",
+                redirect: 'follow',
                 headers: filteredHeaders,
             });
 
@@ -163,27 +146,18 @@ addEventListener("fetch", async (event) => {
                 exposedHeaders.push(key);
                 allResponseHeaders[key] = value;
             }
-            exposedHeaders.push("cors-received-headers");
+            exposedHeaders.push('cors-received-headers');
             resHeaders = setupCORSHeaders(resHeaders);
 
-            resHeaders.set(
-                "Access-Control-Expose-Headers",
-                exposedHeaders.join(",")
-            );
-            resHeaders.set(
-                "cors-received-headers",
-                JSON.stringify(allResponseHeaders)
-            );
+            resHeaders.set('Access-Control-Expose-Headers', exposedHeaders.join(','));
+            resHeaders.set('cors-received-headers', JSON.stringify(allResponseHeaders));
 
             const responseInit = {
                 headers: resHeaders,
                 status: isPreflightRequest ? 200 : response.status,
-                statusText: isPreflightRequest ? "OK" : response.statusText,
+                statusText: isPreflightRequest ? 'OK' : response.statusText,
             };
-            return new Response(
-                isPreflightRequest ? null : response.body,
-                responseInit
-            );
-        })()
+            return new Response(isPreflightRequest ? null : response.body, responseInit);
+        })(),
     );
 });
